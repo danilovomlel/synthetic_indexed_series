@@ -1,0 +1,10 @@
+# Ignore virtual environment
+.venv/
+
+#cache
+__pycache__/
+
+#datasets
+data/*
+
+.ipynb_checkpoints/*
