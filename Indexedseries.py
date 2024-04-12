@@ -7,6 +7,7 @@ class Syndexies():
     def __init__(self, path) -> None:
         self.data = dict()
         self.data['DATA_0'] = self._read_data(path)
+        self.new_data = None
 
     def _read_data(self, path):
         ans = dict()
@@ -29,45 +30,40 @@ class Syndexies():
             ax.invert_yaxis()
             offset += data['CURVE'].max()
     
-    def add_data(self, shift_depth=None, 
-                 compress_rate=None, compress_local=None,
-                 expand_rate=None, expand_local=None,
-                 segment = None,
-                 XY=None, noise=None, **kwargs):
+    def add_data(self, shift_depth=None, XY=None):
 
-        new_data = copy.deepcopy(self.data['DATA_0'])
+        self.new_data = copy.deepcopy(self.data['DATA_0'])
 
         #Create Lat, Long
         if XY:
-            new_data['X'], new_data['Y'] = XY
+            self.new_data['X'], self.new_data['Y'] = XY
         else:
-            new_data['X'], new_data['Y'] = np.random.uniform(-10,10), np.random.uniform(-10,10)
+            self.new_data['X'], self.new_data['Y'] = np.random.uniform(-10,10), np.random.uniform(-10,10)
 
         #Shift on depth
         if not shift_depth:
             shift_depth = np.random.uniform(-100,100)        
-        new_data['DEPT'] = new_data['DEPT'] + shift_depth
-        
-        #Transformations on data
-        if compress_rate:
-            self._compress(new_data, compress_rate)
-        
-        if compress_local:
-            self._compress_local(new_data, compress_local, **kwargs)
+        self.new_data['DEPT'] = self.new_data['DEPT'] + shift_depth
+    
+    def add_transformation(self, transform, parameters):
+            
+        transformations = {
+            "compress": self._compress,
+            "compress_local": self._compress_local,
+            "expand": self._expand,
+            "expand_local": self._expand_local,
+            "remove_segment": self._remove_segment,
+            "gaussian_noise": self._noise,
+            "sine_noise": self._add_sine            
+        }
+        func = transformations.get(transform)
+        if func:
+            func(self.new_data, **parameters)
+        else:
+            print("Invalid input")
 
-        if expand_rate:
-            self._expand(new_data, expand_rate)
-
-        if expand_local:
-            self._expand_local(new_data, expand_local, **kwargs)
-
-        if segment:
-            self._remove_segment(new_data, segment)
-        
-        if noise:
-            self._noise(new_data, noise)
-
-        self.data[f'DATA_{len(self.data)}'] = new_data
+    def end_transformations(self):
+        self.data[f'DATA_{len(self.data)}'] = self.new_data    
 
     def _compress(self, data, compress_rate):
         keys = ['DEPT', 'CURVE', 'IDX']
@@ -140,3 +136,14 @@ class Syndexies():
         else:
             bias, std = noise
         data['CURVE'] += np.random.normal(bias, std, data['CURVE'].size)
+
+    def _add_sine(self, data, T=2, amp=None, modulate=False):
+        if not amp:
+            amp = 0.2*max(data['CURVE'])
+        
+        sine = np.sin(np.linspace(0,2*np.pi*T, data['CURVE'].size))
+
+        if modulate:
+            data['CURVE'] *= sine*amp
+        else:
+            data['CURVE'] += sine*amp
